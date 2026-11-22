@@ -16,11 +16,16 @@ import {
   AlertTriangle,
   Building2,
   Calendar,
-  Users
+  Users,
+  Edit,
+  Copy,
+  Trash2,
+  X
 } from 'lucide-react';
 
 export default function JournalGlobalPage() {
   const [, setTick] = useState(0);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // Form State for quick new journal entry
   const [chantierId, setChantierId] = useState(store.chantiers[0]?.id || '');
@@ -33,11 +38,25 @@ export default function JournalGlobalPage() {
   const [consignesSecurite, setConsignesSecurite] = useState('Port obligatoire des casques, gants et chaussures de sécurité. Balisage des fouilles.');
   const [photoUrl, setPhotoUrl] = useState('https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=800');
   const [photoLegende, setPhotoLegende] = useState('Coulage béton semelles et attentes poteaux');
-  const [successMsg, setSuccessMsg] = useState(false);
+
+  // Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingReport, setEditingReport] = useState<JournalChantier | null>(null);
+  const [editTravaux, setEditTravaux] = useState('');
+  const [editIncidents, setEditIncidents] = useState('');
+  const [editEffectif, setEditEffectif] = useState('10');
+  const [editMeteo, setEditMeteo] = useState<MeteoType>('ENSOLEILLE');
+  const [editTemp, setEditTemp] = useState('26');
+  const [editDate, setEditDate] = useState('');
 
   useEffect(() => {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
+
+  const showNotification = (msg: string) => {
+    setAlertMessage(msg);
+    setTimeout(() => setAlertMessage(null), 3500);
+  };
 
   const chantiers = store.chantiers;
   const journaux = store.journaux;
@@ -59,11 +78,53 @@ export default function JournalGlobalPage() {
       redigeParId: store.currentUser.id
     });
 
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 3000);
-
+    showNotification("Rapport journalier enregistré avec succès dans le journal de chantier !");
     setTravauxExecutes('');
     setProblemesIncidents('');
+  };
+
+  const openEditModal = (j: JournalChantier) => {
+    setEditingReport(j);
+    setEditTravaux(j.travauxExecutes);
+    setEditIncidents(j.problemesIncidents || '');
+    setEditEffectif(String(j.effectifPresent));
+    setEditMeteo(j.meteo);
+    setEditTemp(String(j.temperature));
+    setEditDate(j.date);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReport) return;
+
+    store.updateRapportJournal(editingReport.id, {
+      travauxExecutes: editTravaux,
+      problemesIncidents: editIncidents,
+      effectifPresent: parseInt(editEffectif, 10) || 10,
+      meteo: editMeteo,
+      temperature: parseInt(editTemp, 10) || 25,
+      date: editDate
+    });
+
+    setEditModalOpen(false);
+    showNotification("Rapport de chantier modifié avec succès.");
+  };
+
+  const handleDuplicate = (id: string) => {
+    const clone = store.duplicateRapportJournal(id);
+    if (clone) {
+      showNotification(`Rapport dupliqué vers la date d'aujourd'hui.`);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Confirmez-vous la suppression de ce rapport de chantier ?")) {
+      const ok = store.deleteRapportJournal(id);
+      if (ok) {
+        showNotification("Rapport supprimé de l'historique.");
+      }
+    }
   };
 
   const getMeteoIcon = (m: MeteoType) => {
@@ -79,6 +140,19 @@ export default function JournalGlobalPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       
+      {/* Alert Notification */}
+      {alertMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{alertMessage}</span>
+          </div>
+          <button onClick={() => setAlertMessage(null)} className="text-emerald-600 hover:text-emerald-900">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
@@ -89,23 +163,16 @@ export default function JournalGlobalPage() {
             </span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Saisie quotidienne pour les chefs de chantier : météo, effectifs, avancement et photos de terrain
+            Saisie quotidienne, édition, duplication, météo marocaine, effectifs et photos d'avancement
           </p>
         </div>
       </div>
-
-      {successMsg && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          Rapport journalier enregistré avec succès dans l'historique du chantier !
-        </div>
-      )}
 
       {/* Formulaire de Saisie Mobile-First */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 pb-2 border-b border-slate-100 flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-btp-orange" />
-          Rapport Quotidien du Jour
+          Nouveau Rapport Quotidien
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
@@ -128,28 +195,27 @@ export default function JournalGlobalPage() {
               <label className="block font-bold text-slate-700 mb-1">Date du Rapport</label>
               <input
                 type="date"
-                required
                 value={dateRapport}
                 onChange={(e) => setDateRapport(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
               />
             </div>
           </div>
 
-          {/* Météo & Conditions */}
+          {/* Météo & Effectif */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">Conditions Météo</label>
               <select
                 value={meteo}
                 onChange={(e) => setMeteo(e.target.value as MeteoType)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-semibold"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
               >
-                <option value="ENSOLEILLE">☀️ Ensoleillé</option>
-                <option value="NUAGEUX">⛅ Nuageux</option>
-                <option value="PLUVIEUX">🌧️ Pluvieux</option>
-                <option value="VENT_FORT">💨 Vent fort (Grues ralenties)</option>
-                <option value="CANICULE">🔥 Canicule</option>
+                <option value="ENSOLEILLE">Ensoleillé / Beau temps</option>
+                <option value="PLUVIEUX">Pluvieux (Intempéries)</option>
+                <option value="VENT_FORT">Vent fort / Chergui</option>
+                <option value="CANICULE">Forte chaleur / Canicule</option>
+                <option value="NUAGEUX">Nuageux</option>
               </select>
             </div>
 
@@ -159,44 +225,43 @@ export default function JournalGlobalPage() {
                 type="number"
                 value={temperature}
                 onChange={(e) => setTemperature(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-center font-bold text-slate-800"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Effectif Présent (Ouvriers)</label>
+              <label className="block font-bold text-slate-700 mb-1">Effectif Présent sur Chantier *</label>
               <input
                 type="number"
+                required
                 value={effectifPresent}
                 onChange={(e) => setEffectifPresent(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-center font-bold text-btp-orange"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-blue-700"
               />
             </div>
           </div>
 
-          {/* Travaux du jour */}
+          {/* Travaux Exécutés */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              Travaux Exécutés & Cadencement *
+              Travaux Exécutés Aujourd'hui (Lots, Tâches, Matériaux mis en œuvre) *
             </label>
             <textarea
               rows={3}
               required
-              placeholder="Ex: Coulage de 42 m³ de béton prêt à l'emploi LafargeHolcim B25 pour le plancher haut du RDC. Vibrage à l'aiguille haute fréquence et lissage de surface..."
+              placeholder="Ex: Coulage béton armé dalle haute R+1 (35 m³). Pose ferraillage poteaux. Pose briques cloisons rez-de-chaussée..."
               value={travauxExecutes}
               onChange={(e) => setTravauxExecutes(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
-            ></textarea>
+            />
           </div>
 
-          {/* Aléas & Incidents */}
+          {/* Incidents & Problèmes */}
           <div>
-            <label className="block font-bold text-slate-700 mb-1">
-              Incidents, Retards ou Aléas rencontrés
-            </label>
+            <label className="block font-bold text-slate-700 mb-1">Incidents, Blocages ou Arrêts</label>
             <input
               type="text"
-              placeholder="Ex: Retard livraison acier Sonasid de 2 heures / Visite du bureau de contrôle LPEE"
+              placeholder="Ex: Retard livraison toupie béton (45 min), coupure eau temporaire..."
               value={problemesIncidents}
               onChange={(e) => setProblemesIncidents(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg"
@@ -235,10 +300,10 @@ export default function JournalGlobalPage() {
         </form>
       </div>
 
-      {/* Historique des Rapports Récents */}
+      {/* Historique des Rapports Récents with Actions */}
       <div className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-          Historique des Derniers Rapports de Chantier
+          Historique des Rapports de Chantier ({journaux.length})
         </h2>
 
         <div className="space-y-4">
@@ -284,11 +349,129 @@ export default function JournalGlobalPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Actions Footer : Modifier, Dupliquer, Supprimer */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={() => openEditModal(j)}
+                    title="Modifier ce rapport"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded text-xs font-semibold transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDuplicate(j.id)}
+                    title="Dupliquer pour aujourd'hui"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded text-xs font-semibold transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Dupliquer
+                  </button>
+                  <button
+                    onClick={() => handleDelete(j.id)}
+                    title="Supprimer ce rapport"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded text-xs font-semibold transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Supprimer
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* MODAL MODIFIER RAPPORT JOURNAL */}
+      {editModalOpen && editingReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <div className="px-5 py-4 bg-btp-dark text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm">Modifier le Rapport de Chantier</h3>
+                <p className="text-[11px] text-slate-300">Date : {formatDateFR(editDate)}</p>
+              </div>
+              <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="p-5 space-y-3 text-xs">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Météo</label>
+                  <select
+                    value={editMeteo}
+                    onChange={(e) => setEditMeteo(e.target.value as MeteoType)}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg"
+                  >
+                    <option value="ENSOLEILLE">Ensoleillé</option>
+                    <option value="PLUVIEUX">Pluvieux</option>
+                    <option value="VENT_FORT">Vent fort</option>
+                    <option value="CANICULE">Canicule</option>
+                    <option value="NUAGEUX">Nuageux</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Effectif</label>
+                  <input
+                    type="number"
+                    value={editEffectif}
+                    onChange={(e) => setEditEffectif(e.target.value)}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Travaux Exécutés *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editTravaux}
+                  onChange={(e) => setEditTravaux(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Incidents ou Remarques</label>
+                <input
+                  type="text"
+                  value={editIncidents}
+                  onChange={(e) => setEditIncidents(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 font-bold rounded-lg"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white font-bold rounded-lg shadow-sm"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

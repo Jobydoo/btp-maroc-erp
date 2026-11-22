@@ -17,23 +17,49 @@ import {
   Percent,
   Receipt,
   AlertCircle,
-  X
+  X,
+  Edit,
+  Copy,
+  Trash2
 } from 'lucide-react';
 
 export default function DevisPage() {
   const [, setTick] = useState(0);
   const [activeTab, setActiveTab] = useState<'devis' | 'decomptes'>('devis');
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
-  // Decompte modal
+  // Decompte modal (Create)
   const [decompteModalOpen, setDecompteModalOpen] = useState(false);
   const [selChantierId, setSelChantierId] = useState(store.chantiers[0]?.id || '');
   const [decomptePct, setDecomptePct] = useState('45');
   const [periodeDebut, setPeriodeDebut] = useState('2026-03-01');
   const [periodeFin, setPeriodeFin] = useState('2026-03-31');
 
+  // Devis Edit Modal State
+  const [editDevisModalOpen, setEditDevisModalOpen] = useState(false);
+  const [editingDevis, setEditingDevis] = useState<Devis | null>(null);
+  const [editDevisObjet, setEditDevisObjet] = useState('');
+  const [editDevisClient, setEditDevisClient] = useState('');
+  const [editDevisIce, setEditDevisIce] = useState('');
+  const [editDevisTel, setEditDevisTel] = useState('');
+  const [editDevisVille, setEditDevisVille] = useState('Casablanca');
+  const [editDevisStatut, setEditDevisStatut] = useState<StatutDevis>('BROUILLON');
+  const [editDevisDateValidite, setEditDevisDateValidite] = useState('');
+
+  // Decompte Edit Modal State
+  const [editDecompteModalOpen, setEditDecompteModalOpen] = useState(false);
+  const [editingDecompte, setEditingDecompte] = useState<Decompte | null>(null);
+  const [editDecStatut, setEditDecStatut] = useState<'EMIS' | 'VALIDE' | 'PAYE'>('EMIS');
+  const [editDecPct, setEditDecPct] = useState('50');
+
   useEffect(() => {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
+
+  const showNotification = (msg: string) => {
+    setAlertMessage(msg);
+    setTimeout(() => setAlertMessage(null), 3500);
+  };
 
   const devisList = store.devis;
   const decomptesList = store.decomptes;
@@ -42,10 +68,58 @@ export default function DevisPage() {
   const handleConvertir = (devisId: string) => {
     const ch = store.convertirDevisEnChantier(devisId);
     if (ch) {
-      alert(`Succès ! Le devis a été converti en chantier actif : ${ch.nom} (Code: ${ch.code}) avec tous ses lots et tâches DQE.`);
+      showNotification(`Succès ! Devis converti en chantier actif : ${ch.nom} (${ch.code})`);
     }
   };
 
+  // --- Devis Actions ---
+  const openEditDevisModal = (d: Devis) => {
+    setEditingDevis(d);
+    setEditDevisObjet(d.objet);
+    setEditDevisClient(d.clientNom);
+    setEditDevisIce(d.clientIce || '');
+    setEditDevisTel(d.clientTel || '');
+    setEditDevisVille(d.clientVille || 'Casablanca');
+    setEditDevisStatut(d.statut);
+    setEditDevisDateValidite(d.dateValidite);
+    setEditDevisModalOpen(true);
+  };
+
+  const handleSaveDevisEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDevis) return;
+
+    store.updateDevis(editingDevis.id, {
+      objet: editDevisObjet,
+      clientNom: editDevisClient,
+      clientIce: editDevisIce,
+      clientTel: editDevisTel,
+      clientVille: editDevisVille,
+      statut: editDevisStatut,
+      dateValidite: editDevisDateValidite
+    });
+
+    setEditDevisModalOpen(false);
+    showNotification(`Devis "${editingDevis.reference}" mis à jour avec succès.`);
+  };
+
+  const handleDuplicateDevis = (id: string, ref: string) => {
+    const clone = store.duplicateDevis(id);
+    if (clone) {
+      showNotification(`Devis ${ref} dupliqué sous la référence ${clone.reference}.`);
+    }
+  };
+
+  const handleDeleteDevis = (id: string, ref: string) => {
+    if (window.confirm(`Confirmez-vous la suppression du devis ${ref} ?`)) {
+      const ok = store.deleteDevis(id);
+      if (ok) {
+        showNotification(`Devis ${ref} supprimé.`);
+      }
+    }
+  };
+
+  // --- Decompte Actions ---
   const handleCreerDecompte = (e: React.FormEvent) => {
     e.preventDefault();
     const pct = parseFloat(decomptePct) || 10;
@@ -53,12 +127,62 @@ export default function DevisPage() {
     if (dec) {
       setDecompteModalOpen(false);
       setActiveTab('decomptes');
+      showNotification(`Décompte ${dec.numero} émis avec succès (${dec.pourcentageCumule}% d'avancement).`);
+    }
+  };
+
+  const openEditDecompteModal = (dec: Decompte) => {
+    setEditingDecompte(dec);
+    setEditDecStatut(dec.statut);
+    setEditDecPct(String(dec.pourcentageCumule));
+    setEditDecompteModalOpen(true);
+  };
+
+  const handleSaveDecompteEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDecompte) return;
+
+    store.updateDecompte(editingDecompte.id, {
+      statut: editDecStatut,
+      pourcentageCumule: parseFloat(editDecPct) || editingDecompte.pourcentageCumule
+    });
+
+    setEditDecompteModalOpen(false);
+    showNotification(`Décompte ${editingDecompte.numero} mis à jour (Statut: ${editDecStatut}).`);
+  };
+
+  const handleDuplicateDecompte = (id: string, num: string) => {
+    const clone = store.duplicateDecompte(id);
+    if (clone) {
+      showNotification(`Situation / Décompte ${num} dupliqué sous ${clone.numero}.`);
+    }
+  };
+
+  const handleDeleteDecompte = (id: string, num: string) => {
+    if (window.confirm(`Confirmez-vous la suppression du décompte ${num} ?`)) {
+      const ok = store.deleteDecompte(id);
+      if (ok) {
+        showNotification(`Décompte ${num} supprimé.`);
+      }
     }
   };
 
   return (
     <div className="space-y-6">
       
+      {/* Alert Notification */}
+      {alertMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span>{alertMessage}</span>
+          </div>
+          <button onClick={() => setAlertMessage(null)} className="text-emerald-600 hover:text-emerald-900">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header & New Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -69,7 +193,7 @@ export default function DevisPage() {
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Bordereaux des prix unitaires, situations de travaux avec retenue de garantie 10% et exports PDF certifiés
+            Bordereaux des prix unitaires, édition, duplication, retenue de garantie 10% et exports PDF certifiés
           </p>
         </div>
 
@@ -138,6 +262,8 @@ export default function DevisPage() {
                         ? 'bg-emerald-100 text-emerald-800'
                         : d.statut === 'CONVERTI_CHANTIER'
                         ? 'bg-blue-100 text-blue-800'
+                        : d.statut === 'REFUSE'
+                        ? 'bg-rose-100 text-rose-800'
                         : 'bg-amber-100 text-amber-800'
                     }`}>
                       {d.statut === 'CONVERTI_CHANTIER' ? 'Converti en Chantier' : d.statut}
@@ -166,29 +292,53 @@ export default function DevisPage() {
                   </div>
                 </div>
 
-                {/* Footer Buttons */}
+                {/* Footer Buttons: PDF, Convert, Edit, Duplicate, Delete */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    onClick={() => genererPDFDevis(d, company)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-xs transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5 text-btp-orange" />
-                    Télécharger PDF Légal
-                  </button>
-
-                  {d.statut !== 'CONVERTI_CHANTIER' ? (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleConvertir(d.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white text-xs font-bold rounded-lg shadow-xs transition-all"
+                      onClick={() => genererPDFDevis(d, company)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-xs transition-all"
                     >
-                      <Building className="w-3.5 h-3.5" />
-                      Convertir en Chantier
+                      <Download className="w-3.5 h-3.5 text-btp-orange" />
+                      PDF Légal
                     </button>
-                  ) : (
-                    <span className="text-xs text-blue-600 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> Chantier Actif
-                    </span>
-                  )}
+
+                    {d.statut !== 'CONVERTI_CHANTIER' && (
+                      <button
+                        onClick={() => handleConvertir(d.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white text-xs font-bold rounded-lg shadow-xs transition-all"
+                      >
+                        <Building className="w-3.5 h-3.5" />
+                        Convertir
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEditDevisModal(d)}
+                      title="Modifier ce devis"
+                      className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDuplicateDevis(d.id, d.reference)}
+                      title="Dupliquer ce devis (créer une copie)"
+                      className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteDevis(d.id, d.reference)}
+                      title="Supprimer ce devis"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -212,7 +362,7 @@ export default function DevisPage() {
                     <th className="py-3 px-3 text-right">Retenue 10%</th>
                     <th className="py-3 px-3 text-right font-bold text-slate-900">Net TTC (MAD)</th>
                     <th className="py-3 px-3 text-center">Statut</th>
-                    <th className="py-3 px-4 text-center">Action</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -239,14 +389,37 @@ export default function DevisPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <button
-                            onClick={() => ch && genererPDFDecompte(dec, ch, company)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded text-slate-700 text-[11px] font-bold"
-                            title="Télécharger le Décompte au format PDF officiel"
-                          >
-                            <Download className="w-3 h-3 text-btp-orange" />
-                            PDF
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => ch && genererPDFDecompte(dec, ch, company)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-white hover:bg-slate-50 border border-slate-300 rounded text-slate-700 text-[11px] font-bold"
+                              title="Télécharger le Décompte PDF"
+                            >
+                              <Download className="w-3 h-3 text-btp-orange" />
+                              PDF
+                            </button>
+                            <button
+                              onClick={() => openEditDecompteModal(dec)}
+                              className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Modifier statut ou informations du décompte"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicateDecompte(dec.id, dec.numero)}
+                              className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded"
+                              title="Dupliquer ce décompte"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDecompte(dec.id, dec.numero)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                              title="Supprimer ce décompte"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -254,6 +427,179 @@ export default function DevisPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MODIFIER DEVIS */}
+      {editDevisModalOpen && editingDevis && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <div className="px-5 py-4 bg-btp-dark text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm">Modifier le Devis {editingDevis.reference}</h3>
+                <p className="text-[11px] text-slate-300">Ajustement des coordonnées client et du statut</p>
+              </div>
+              <button onClick={() => setEditDevisModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveDevisEdit} className="p-5 space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Objet / Titre du Devis *</label>
+                <input
+                  type="text"
+                  required
+                  value={editDevisObjet}
+                  onChange={(e) => setEditDevisObjet(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Nom Client *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editDevisClient}
+                    onChange={(e) => setEditDevisClient(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ICE Client</label>
+                  <input
+                    type="text"
+                    value={editDevisIce}
+                    onChange={(e) => setEditDevisIce(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-btp-orange"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Téléphone</label>
+                  <input
+                    type="text"
+                    value={editDevisTel}
+                    onChange={(e) => setEditDevisTel(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Ville</label>
+                  <input
+                    type="text"
+                    value={editDevisVille}
+                    onChange={(e) => setEditDevisVille(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Statut Commercial</label>
+                  <select
+                    value={editDevisStatut}
+                    onChange={(e) => setEditDevisStatut(e.target.value as StatutDevis)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold focus:ring-2 focus:ring-btp-orange"
+                  >
+                    <option value="BROUILLON">Brouillon</option>
+                    <option value="EN_ATTENTE">En attente signature</option>
+                    <option value="VALIDE">Validé / Accepté</option>
+                    <option value="REFUSE">Refusé</option>
+                    <option value="CONVERTI_CHANTIER">Converti en Chantier</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Date Validité</label>
+                  <input
+                    type="date"
+                    value={editDevisDateValidite}
+                    onChange={(e) => setEditDevisDateValidite(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditDevisModalOpen(false)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 font-bold rounded-lg"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white font-bold rounded-lg shadow-sm"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MODIFIER DÉCOMPTE */}
+      {editDecompteModalOpen && editingDecompte && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
+            <div className="px-5 py-4 bg-btp-dark text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm">Modifier le Décompte</h3>
+                <p className="text-[11px] text-slate-300">{editingDecompte.numero}</p>
+              </div>
+              <button onClick={() => setEditDecompteModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveDecompteEdit} className="p-5 space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Statut d'Encaissement *</label>
+                <select
+                  value={editDecStatut}
+                  onChange={(e) => setEditDecStatut(e.target.value as any)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold focus:ring-2 focus:ring-btp-orange"
+                >
+                  <option value="EMIS">Émis (en attente visa)</option>
+                  <option value="VALIDE">Validé par Maître d'Œuvre</option>
+                  <option value="PAYE">Payé / Encaissé</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Avancement Cumulé (%)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={editDecPct}
+                  onChange={(e) => setEditDecPct(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold focus:ring-2 focus:ring-btp-orange"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditDecompteModalOpen(false)}
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 font-bold rounded-lg"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white font-bold rounded-lg shadow-sm"
+                >
+                  Mettre à jour
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -283,59 +629,58 @@ export default function DevisPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Pourcentage Cumulé d'Avancement (%) *</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  required
-                  value={decomptePct}
-                  onChange={(e) => setDecomptePct(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-center"
-                />
+                <label className="block font-bold text-slate-700 mb-1">Avancement Physique Cumulé du Projet (%) *</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={decomptePct}
+                    onChange={(e) => setDecomptePct(e.target.value)}
+                    className="w-full px-3 py-1.5 pr-8 border border-slate-300 rounded-lg font-bold focus:ring-2 focus:ring-btp-orange"
+                  />
+                  <Percent className="w-4 h-4 text-slate-400 absolute right-3 top-2" />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Le calcul de la situation précédente et de la retenue de garantie de 10% sera effectué automatiquement.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Date Début Période</label>
+                  <label className="block font-bold text-slate-700 mb-1">Début de Période</label>
                   <input
                     type="date"
-                    required
                     value={periodeDebut}
                     onChange={(e) => setPeriodeDebut(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Date Fin Période</label>
+                  <label className="block font-bold text-slate-700 mb-1">Fin de Période</label>
                   <input
                     type="date"
-                    required
                     value={periodeFin}
                     onChange={(e) => setPeriodeFin(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-btp-orange"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
-                <strong className="block font-bold mb-0.5">Règle BTP Maroc appliquée :</strong>
-                Une retenue de garantie légale de <strong>10%</strong> est automatiquement déduite du montant hors taxes, avec application de la TVA à 20%.
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setDecompteModalOpen(false)}
-                  className="px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="px-3 py-1.5 border border-slate-300 text-slate-700 font-bold rounded-lg"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 font-bold text-white bg-btp-orange hover:bg-btp-orange-dark rounded-lg"
+                  className="px-4 py-1.5 bg-btp-orange hover:bg-btp-orange-dark text-white font-bold rounded-lg shadow-sm"
                 >
-                  Générer la Situation
+                  Générer le Décompte
                 </button>
               </div>
             </form>

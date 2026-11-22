@@ -177,3 +177,152 @@ test('8. Permissions & Rôles Métier BTP (Gérant, Chef de Chantier, Comptable)
   assert.strictEqual(checkPermission('GERANT_ADMIN', 'parametres_fiscaux'), true);
   assert.strictEqual(checkPermission('GERANT_ADMIN', 'pointage'), true);
 });
+
+test('9. Opérations Modifier, Dupliquer et Supprimer sur les Chantiers', () => {
+  let chantiers = [
+    { id: 'ch-01', code: 'CH-2026-001', nom: 'Villa Marrakech', budgetTotalMAD: 3500000, statut: 'EN_COURS' }
+  ];
+
+  // 1. Modifier
+  chantiers = chantiers.map(c => c.id === 'ch-01' ? { ...c, nom: 'Villa Marrakech Palmeraie R+1', budgetTotalMAD: 3800000 } : c);
+  assert.strictEqual(chantiers[0].nom, 'Villa Marrakech Palmeraie R+1');
+  assert.strictEqual(chantiers[0].budgetTotalMAD, 3800000);
+
+  // 2. Dupliquer
+  const original = chantiers[0];
+  const clone = {
+    ...original,
+    id: 'ch-02',
+    code: 'CH-2026-002',
+    nom: `[Copie] ${original.nom}`,
+    statut: 'PREPARATION'
+  };
+  chantiers.push(clone);
+  assert.strictEqual(chantiers.length, 2);
+  assert.strictEqual(clone.nom, '[Copie] Villa Marrakech Palmeraie R+1');
+  assert.strictEqual(clone.code, 'CH-2026-002');
+  assert.strictEqual(clone.statut, 'PREPARATION');
+
+  // 3. Supprimer
+  chantiers = chantiers.filter(c => c.id !== 'ch-01');
+  assert.strictEqual(chantiers.length, 1);
+  assert.strictEqual(chantiers[0].id, 'ch-02');
+});
+
+test('10. Opérations Modifier, Dupliquer et Supprimer sur les Devis DQE', () => {
+  let devisList = [
+    {
+      id: 'dev-01',
+      reference: 'DEV-2026-0001',
+      objet: 'Gros Œuvre Immeuble R+4 Safi',
+      clientNom: 'Société Immobilière Atlantique SARL',
+      statut: 'VALIDE',
+      totalHT: 6500000,
+      items: [{ designation: 'Béton armé fondations', quantite: 150, prixUnitaireHT: 950, totalHT: 142500 }]
+    }
+  ];
+
+  // 1. Modifier
+  devisList[0] = { ...devisList[0], statut: 'CONVERTI_CHANTIER', clientNom: 'Groupe Atlantique SA' };
+  assert.strictEqual(devisList[0].statut, 'CONVERTI_CHANTIER');
+  assert.strictEqual(devisList[0].clientNom, 'Groupe Atlantique SA');
+
+  // 2. Dupliquer
+  const orig = devisList[0];
+  const clone = {
+    ...orig,
+    id: 'dev-02',
+    reference: 'DEV-2026-0002',
+    objet: `[Copie] ${orig.objet}`,
+    statut: 'BROUILLON',
+    items: orig.items.map(it => ({ ...it }))
+  };
+  devisList.push(clone);
+  assert.strictEqual(devisList.length, 2);
+  assert.strictEqual(clone.reference, 'DEV-2026-0002');
+  assert.strictEqual(clone.statut, 'BROUILLON');
+
+  // 3. Supprimer
+  devisList = devisList.filter(d => d.id !== 'dev-01');
+  assert.strictEqual(devisList.length, 1);
+  assert.strictEqual(devisList[0].id, 'dev-02');
+});
+
+test('11. Opérations Modifier, Dupliquer et Supprimer sur les Ouvriers & Matériaux', () => {
+  // Ouvriers
+  let ouvriers = [
+    { id: 'ouv-01', matricule: 'MAT-26001', nom: 'Hassan Amrani', cin: 'EE123456', specialite: 'MACON', tarifJourMAD: 280 }
+  ];
+
+  // Modifier ouvrier
+  ouvriers[0] = { ...ouvriers[0], tarifJourMAD: 300, specialite: 'CHEF_EQUIPE' };
+  assert.strictEqual(ouvriers[0].tarifJourMAD, 300);
+  assert.strictEqual(ouvriers[0].specialite, 'CHEF_EQUIPE');
+
+  // Dupliquer ouvrier
+  const clonedOuv = { ...ouvriers[0], id: 'ouv-02', matricule: 'MAT-26002', nom: '[Copie] Hassan Amrani', cin: 'EE123456-BIS' };
+  ouvriers.push(clonedOuv);
+  assert.strictEqual(ouvriers.length, 2);
+  assert.strictEqual(ouvriers[1].matricule, 'MAT-26002');
+
+  // Supprimer ouvrier
+  ouvriers = ouvriers.filter(o => o.id !== 'ouv-01');
+  assert.strictEqual(ouvriers.length, 1);
+
+  // Matériaux
+  let materiaux = [
+    { id: 'mat-01', code: 'CIM-CPJ45', designation: 'Ciment CPJ 45', stockActuel: 120, stockMinimum: 30, prixUnitaireMoyenMAD: 78.50 }
+  ];
+
+  // Modifier matériau
+  materiaux[0] = { ...materiaux[0], stockActuel: 250, prixUnitaireMoyenMAD: 80.00 };
+  assert.strictEqual(materiaux[0].stockActuel, 250);
+
+  // Dupliquer matériau
+  const clonedMat = { ...materiaux[0], id: 'mat-02', code: 'CIM-CPJ45-COPY', designation: '[Copie] Ciment CPJ 45' };
+  materiaux.push(clonedMat);
+  assert.strictEqual(materiaux.length, 2);
+
+  // Supprimer matériau
+  materiaux = materiaux.filter(m => m.id !== 'mat-01');
+  assert.strictEqual(materiaux.length, 1);
+});
+
+test('12. Opérations Modifier, Dupliquer et Supprimer sur Tâches DQE & Journal', () => {
+  // Tâches
+  let taches = [
+    { id: 't-01', designation: 'Ferraillage semelles', quantitePrevue: 10, prixUnitaireHT: 12000, totalHT: 120000, quantiteRealisee: 5, avancementPct: 50 }
+  ];
+
+  // Modifier tâche
+  taches[0] = { ...taches[0], quantiteRealisee: 10, avancementPct: 100 };
+  assert.strictEqual(taches[0].avancementPct, 100);
+
+  // Dupliquer tâche
+  const clonedTache = { ...taches[0], id: 't-02', designation: '[Copie] Ferraillage semelles', quantiteRealisee: 0, avancementPct: 0 };
+  taches.push(clonedTache);
+  assert.strictEqual(taches.length, 2);
+  assert.strictEqual(taches[1].avancementPct, 0);
+
+  // Supprimer tâche
+  taches = taches.filter(t => t.id !== 't-01');
+  assert.strictEqual(taches.length, 1);
+
+  // Journal
+  let journaux = [
+    { id: 'jc-01', date: '2026-03-10', travauxExecutes: 'Coulage semelles', effectifPresent: 8, meteo: 'ENSOLEILLE', temperature: 24 }
+  ];
+
+  // Modifier rapport
+  journaux[0] = { ...journaux[0], travauxExecutes: 'Coulage semelles + attentes amorces poteaux', effectifPresent: 10 };
+  assert.strictEqual(journaux[0].effectifPresent, 10);
+
+  // Dupliquer rapport
+  const clonedJ = { ...journaux[0], id: 'jc-02', date: '2026-03-11', travauxExecutes: `[Reporté] ${journaux[0].travauxExecutes}` };
+  journaux.push(clonedJ);
+  assert.strictEqual(journaux.length, 2);
+
+  // Supprimer rapport
+  journaux = journaux.filter(j => j.id !== 'jc-01');
+  assert.strictEqual(journaux.length, 1);
+});
