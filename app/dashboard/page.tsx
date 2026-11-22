@@ -17,7 +17,14 @@ import {
   Layers,
   ChevronRight,
   Boxes,
-  Users
+  Users,
+  UserCheck,
+  Briefcase,
+  Receipt,
+  FileSpreadsheet,
+  AlertCircle,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -27,235 +34,307 @@ export default function DashboardPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
-  const kpis = store.getExecutiveKPIs();
-  const chantiers = store.chantiers;
-  const materiauxAlerte = store.materiaux.filter(m => m.stockActuel <= m.stockMinimum);
-  const decomptesImpayes = store.decomptes.filter(d => d.statut === 'EMIS' || d.statut === 'VALIDE');
+  const chantiers = store.chantiersActifs;
+  const articlesAlerte = store.articlesActifs.filter(a => a.stockActuel <= a.stockMinimum);
+  const facturesVente = store.facturesVenteActives;
+  const devisRecents = store.devisActifs;
+  const clients = store.clientsActifs;
+  const fournisseurs = store.fournisseursActifs;
+
+  const caTotal = store.chiffreAffairesTotal;
+  const encoursClient = store.encoursClientARecouvrer;
+  const devisEnCours = store.devisEnCoursTotal;
+
+  // Factures impayées
+  const facturesImpayees = facturesVente.filter(f => f.statut === 'VALIDEE' || f.statut === 'PARTIELLEMENT_PAYEE');
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
-      {/* Top Banner & Quick Action Buttons */}
+      {/* Top Banner & Quick Shortcuts */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Tableau de Bord Exécutif
-            <span className="text-xs bg-btp-orange text-white font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">
-              BTP Maroc
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Tableau de Bord Commercial & Chantiers
+            </h1>
+            <span className="text-xs bg-btp-orange text-white font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+              {store.company.raisonSociale.split(' ')[0]}
             </span>
-          </h1>
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Indicateurs financiers en Dirham (MAD), avancement des lots et pilotage des chantiers
+            Pilotage financier unifié Sage 100 BTP : Chantiers, Ventes, Achats, Stocks et Recouvrement
           </p>
         </div>
 
+        {/* 4 Raccourcis Rapides Demandés */}
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/chantiers?nouveau=true"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-btp-orange hover:bg-btp-orange-dark text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+            href="/clients"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs"
           >
-            <PlusCircle className="w-4 h-4" />
-            Nouveau Chantier
+            <UserCheck className="w-3.5 h-3.5 text-blue-600" />
+            Clients
           </Link>
 
           <Link
-            href="/devis/nouveau"
+            href="/articles"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs"
+          >
+            <Boxes className="w-3.5 h-3.5 text-slate-600" />
+            Catalogue Articles
+          </Link>
+
+          <Link
+            href="/ventes/devis?action=nouveau"
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
           >
-            <FileText className="w-4 h-4" />
-            Nouveau Devis DQE
+            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
+            Créer un Devis
           </Link>
 
           <Link
-            href="/ouvriers/pointage"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold transition-all"
+            href="/ventes/factures?action=nouveau"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-btp-orange hover:bg-orange-600 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
           >
-            <Users className="w-4 h-4 text-btp-orange" />
-            Pointage Express
+            <Receipt className="w-3.5 h-3.5" />
+            Créer une Facture
           </Link>
         </div>
       </div>
 
-      {/* 4 Main KPI Cards */}
+      {/* BANDEAU ROUGE D'ALERTE STOCK (Articles sous le seuil minimum avec bouton 'Voir le stock') */}
+      {articlesAlerte.length > 0 && (
+        <div className="bg-rose-50 border-l-4 border-rose-600 p-4 rounded-xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-lg flex-shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-rose-900 flex items-center gap-2">
+                Alerte Réapprovisionnement Stock : {articlesAlerte.length} matériau(x) sous le seuil d'alerte critique !
+              </h2>
+              <p className="text-xs text-rose-700 mt-0.5">
+                {articlesAlerte.map(a => `${a.designation} (${a.stockActuel} ${a.unite} restants / min ${a.stockMinimum})`).slice(0, 3).join(' • ')}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/articles"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-xs transition-colors self-start sm:self-auto"
+          >
+            Voir le stock <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
+      {/* 4 KPIS EN TEMPS RÉEL DEMANDÉS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* KPI 1: CA Engagé */}
+        {/* KPI 1 : Chiffre d'Affaires */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              CA Engagé (Chantiers)
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <Building className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-extrabold text-slate-900 tracking-tight">
-              {formatMAD(kpis.caEngage)}
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
-              <span className="font-bold text-blue-600">{chantiers.length}</span> chantiers sous contrat
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2: Dépenses Mois */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Dépenses du Mois (HT)
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <CreditCard className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-extrabold text-slate-900 tracking-tight">
-              {formatMAD(kpis.depensesMois || 232250)}
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-amber-700 mt-1">
-              <span>Matériaux, MO & Location Engins</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Marge Nette Globale */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Marge Nette Prévisionnelle
+              Chiffre d'Affaires
             </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-extrabold text-emerald-600 tracking-tight">
-              {formatMAD(kpis.margeNetteMAD)}
+            <div className="text-xl font-extrabold text-slate-900 tracking-tight">
+              {formatMAD(caTotal)}
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] mt-1">
-              <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded text-[10px]">
-                {kpis.margeNettePct} %
-              </span>
-              <span className="text-slate-500">marge brute consolidée</span>
+            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+              <span className="text-emerald-600 font-bold">Ventes facturées</span> (TTC en Dirham)
             </div>
           </div>
         </div>
 
-        {/* KPI 4: Chantiers Actifs & Alertes */}
+        {/* KPI 2 : Encours Client à Recouvrer */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Chantiers Actifs
+              Encours Client à Recouvrer
             </span>
-            <div className="w-8 h-8 rounded-lg bg-orange-50 text-btp-orange flex items-center justify-center font-bold">
-              <Clock className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <CreditCard className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              {kpis.chantiersActifs}
-              <span className="text-xs font-medium text-slate-400">sur {chantiers.length}</span>
+            <div className="text-xl font-extrabold text-amber-600 tracking-tight">
+              {formatMAD(encoursClient)}
             </div>
-            <div className="flex items-center gap-2 text-[11px] mt-1">
-              {kpis.alertesStock > 0 ? (
-                <span className="text-rose-600 font-semibold flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> {kpis.alertesStock} rupture(s) stock
-                </span>
-              ) : (
-                <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Stocks approvisionnés
-                </span>
-              )}
+            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+              <span className="font-bold text-amber-600">{facturesImpayees.length}</span> facture(s) en attente
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3 : Devis en cours */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Devis en Cours
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <FileSpreadsheet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-blue-600 tracking-tight">
+              {formatMAD(devisEnCours)}
+            </div>
+            <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+              <span className="font-bold text-blue-600">{devisRecents.filter(d => d.statut === 'EN_ATTENTE' || d.statut === 'VALIDE').length}</span> devis DQE actifs
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4 : Clients & Fournisseurs */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Clients & Fournisseurs
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl font-extrabold text-slate-900 tracking-tight flex items-baseline gap-2">
+              <span>{clients.length + fournisseurs.length}</span>
+              <span className="text-xs font-normal text-slate-500">partenaires</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
+              <span className="font-bold text-blue-600">{clients.length} Clients</span> • <span className="font-bold text-purple-600">{fournisseurs.length} Fournisseurs</span>
             </div>
           </div>
         </div>
 
       </div>
 
-      {/* Comparative Section: Budget vs Coût Réel par Chantier */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left 2 Cols: Comparatif Graphique & Avancement */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Layers className="w-4 h-4 text-btp-orange" />
-                Budget Prévu vs Coût Réel par Chantier
-              </h2>
-              <p className="text-xs text-slate-500">
-                Comparaison financière et suivi de la consommation budgétaire en direct
-              </p>
-            </div>
-            <Link
-              href="/chantiers"
-              className="text-xs text-btp-orange hover:text-btp-orange-dark font-bold flex items-center gap-1"
-            >
-              Voir tous <ChevronRight className="w-3 h-3" />
-            </Link>
+      {/* Graphique Comparatif : Budget Prévu vs Coût Réel par Chantier */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-btp-orange" />
+              Comparatif : Budget Prévu vs Coût Réel par Chantier
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Consommation budgétaire (Matériaux, Main-d'œuvre, Engins) et maîtrise des marges
+            </p>
           </div>
+          <Link
+            href="/chantiers"
+            className="text-xs font-bold text-btp-orange hover:underline flex items-center gap-1"
+          >
+            Tous les chantiers <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
 
-          <div className="mt-5 space-y-6">
-            {chantiers.map((ch) => {
-              const ratio = ch.budgetTotalMAD > 0 ? Math.round((ch.coutReelTotalMAD / ch.budgetTotalMAD) * 100) : 0;
-              const isOver = ch.coutReelTotalMAD > ch.budgetTotalMAD;
+        <div className="space-y-4">
+          {chantiers.map((ch) => {
+            const pctConsomme = Math.min(100, Math.round((ch.coutReelTotalMAD / ch.budgetTotalMAD) * 100));
+            const isDepassement = ch.coutReelTotalMAD > ch.budgetTotalMAD;
+            const margeRestante = ch.budgetTotalMAD - ch.coutReelTotalMAD;
 
-              return (
-                <div key={ch.id} className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl hover:border-slate-300 transition-all">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/chantiers/${ch.id}`}
-                          className="font-bold text-sm text-slate-900 hover:text-btp-orange transition-colors"
-                        >
-                          {ch.nom}
-                        </Link>
-                        <span className="text-[10px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.2 rounded">
-                          {ch.ville}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Client : {ch.maitreOuvrage}  •  Code : {ch.code}
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-slate-900">
-                        {formatMAD(ch.coutReelTotalMAD)} <span className="font-normal text-slate-400">/ {formatMAD(ch.budgetTotalMAD)}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 ${
-                        isOver ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {ratio}% consommé
+            return (
+              <div key={ch.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {ch.code}
                       </span>
+                      <Link href={`/chantiers/${ch.id}`} className="font-bold text-sm text-slate-900 hover:text-btp-orange transition-colors">
+                        {ch.nom}
+                      </Link>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Client : <strong>{ch.maitreOuvrage}</strong> • Ville : {ch.ville} • Avancement physique : <strong className="text-emerald-600">{ch.avancementGlobalPct}%</strong>
                     </div>
                   </div>
 
-                  {/* Dual Progress Bars: Coût Consommé vs Avancement Réalisé */}
-                  <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-200/60">
-                    <div className="flex items-center justify-between text-[11px] text-slate-600">
-                      <span>Avancement physique des travaux :</span>
-                      <strong className="text-btp-orange font-bold">{ch.avancementGlobalPct} %</strong>
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-slate-900">
+                      Coût Réel : {formatMAD(ch.coutReelTotalMAD)} / {formatMAD(ch.budgetTotalMAD)}
                     </div>
-                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-btp-orange h-full rounded-full transition-all duration-500"
-                        style={{ width: `${ch.avancementGlobalPct}%` }}
-                      ></div>
+                    <div className="text-[11px] font-medium text-slate-500 mt-0.5">
+                      Marge brute prévisionnelle : <strong className={margeRestante >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatMAD(margeRestante)}</strong>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1">
-                      <span>Consommation financière du budget :</span>
-                      <strong className={isOver ? 'text-rose-600 font-bold' : 'text-slate-700'}>{ratio} %</strong>
+                {/* Progress bars combinées */}
+                <div className="space-y-1">
+                  <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden flex">
+                    <div
+                      className={`h-full transition-all ${isDepassement ? 'bg-rose-500' : 'bg-btp-orange'}`}
+                      style={{ width: `${pctConsomme}%` }}
+                      title={`Budget consommé : ${pctConsomme}%`}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-500 font-medium">
+                    <span>Budget consommé : {pctConsomme}%</span>
+                    <span>Avancement travaux : {ch.avancementGlobalPct}%</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2 Colonnes : Factures Vente Récentes & Devis Récents avec badges de statut */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Liste des Factures Vente Récentes */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-600" />
+              Factures Vente & Décomptes Récents
+            </h2>
+            <Link href="/ventes/factures" className="text-xs font-bold text-btp-orange hover:underline">
+              Voir tout
+            </Link>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {facturesVente.slice(0, 5).map((fac) => {
+              const badgeClass = 
+                fac.statut === 'PAYEE'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : fac.statut === 'PARTIELLEMENT_PAYEE'
+                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                  : 'bg-blue-100 text-blue-800 border-blue-200';
+
+              const badgeLabel =
+                fac.statut === 'PAYEE'
+                  ? 'Payée'
+                  : fac.statut === 'PARTIELLEMENT_PAYEE'
+                  ? 'Partiellement payée'
+                  : 'En attente';
+
+              return (
+                <div key={fac.id} className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50 px-2 rounded-lg transition-colors">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-900">{fac.numeroFacture}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                        {badgeLabel}
+                      </span>
                     </div>
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${isOver ? 'bg-rose-500' : 'bg-slate-800'}`}
-                        style={{ width: `${Math.min(100, ratio)}%` }}
-                      ></div>
-                    </div>
+                    <p className="text-xs text-slate-600 font-medium truncate mt-0.5">{fac.clientNom}</p>
+                    <p className="text-[11px] text-slate-400">Échéance : {formatDateFR(fac.dateEcheance)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-extrabold text-slate-900">{formatMAD(fac.totalTTC)}</p>
+                    {fac.soldeDu > 0 && (
+                      <p className="text-[11px] text-amber-600 font-bold">Reste : {formatMAD(fac.soldeDu)}</p>
+                    )}
                   </div>
                 </div>
               );
@@ -263,110 +342,54 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Col: Bloc Alertes BTP Maroc */}
-        <div className="space-y-6">
-          
-          {/* Alertes Matériaux & Stocks */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                Alertes de Stock Minimum
-              </h3>
-              <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">
-                {materiauxAlerte.length} critique(s)
-              </span>
-            </div>
+        {/* Liste des Devis Récents */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-btp-orange" />
+              Devis Récents (DQE BTP)
+            </h2>
+            <Link href="/ventes/devis" className="text-xs font-bold text-btp-orange hover:underline">
+              Voir tout
+            </Link>
+          </div>
 
-            <div className="mt-3 divide-y divide-slate-100">
-              {materiauxAlerte.length > 0 ? (
-                materiauxAlerte.map(mat => (
-                  <div key={mat.id} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-semibold text-slate-900">{mat.designation}</p>
-                      <p className="text-[11px] text-slate-500">
-                        Reste : <strong className="text-rose-600">{mat.stockActuel} {mat.unite}</strong> (Min : {mat.stockMinimum})
-                      </p>
+          <div className="divide-y divide-slate-100">
+            {devisRecents.slice(0, 5).map((dev) => {
+              const badgeClass =
+                dev.statut === 'VALIDE' || dev.statut === 'CONVERTI_CHANTIER' || dev.statut === 'CONVERTI_COMMANDE'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : dev.statut === 'EN_ATTENTE'
+                  ? 'bg-amber-100 text-amber-800 border-amber-200'
+                  : 'bg-slate-100 text-slate-800 border-slate-200';
+
+              const badgeLabel =
+                dev.statut === 'VALIDE' || dev.statut === 'CONVERTI_CHANTIER' || dev.statut === 'CONVERTI_COMMANDE'
+                  ? 'Accepté'
+                  : dev.statut === 'EN_ATTENTE'
+                  ? 'En attente'
+                  : 'Brouillon';
+
+              return (
+                <div key={dev.id} className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50 px-2 rounded-lg transition-colors">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-900">{dev.reference}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                        {badgeLabel}
+                      </span>
                     </div>
-                    <Link
-                      href="/materiaux"
-                      className="text-[11px] font-bold text-btp-orange hover:underline px-2 py-1 bg-orange-50 rounded"
-                    >
-                      Commander
-                    </Link>
+                    <p className="text-xs text-slate-600 font-medium truncate mt-0.5">{dev.clientNom}</p>
+                    <p className="text-[11px] text-slate-400 truncate max-w-xs">{dev.objet}</p>
                   </div>
-                ))
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-500">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-                  Tous les stocks sont au-dessus du seuil minimum.
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-extrabold text-slate-900">{formatMAD(dev.totalTTC)}</p>
+                    <p className="text-[11px] text-slate-400">{dev.items?.length || 0} postes DQE</p>
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Décomptes & Factures Clients en Attente */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-blue-500" />
-                Décomptes en Attente de Paiement
-              </h3>
-              <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                {decomptesImpayes.length} situation(s)
-              </span>
-            </div>
-
-            <div className="mt-3 divide-y divide-slate-100">
-              {decomptesImpayes.length > 0 ? (
-                decomptesImpayes.map(dec => {
-                  const ch = chantiers.find(c => c.id === dec.chantierId);
-                  return (
-                    <div key={dec.id} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-semibold text-slate-900">{dec.numero}</p>
-                        <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
-                          {ch?.nom || 'Chantier'} ({dec.pourcentageCumule}% avancement)
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-slate-900">{formatMAD(dec.montantTTC)}</div>
-                        <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.2 rounded">
-                          {dec.statut}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-500">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-                  Aucun décompte impayé en souffrance.
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-500">
-              <span>Total en attente TTC :</span>
-              <strong className="text-slate-900 font-bold">{formatMAD(kpis.montantImpayeMAD)}</strong>
-            </div>
-          </div>
-
-          {/* Mentions Légales & Fiscale Entreprise */}
-          <div className="p-4 bg-slate-900 rounded-xl text-white text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-btp-orange text-[11px] uppercase tracking-wider">
-                Cadre Réglementaire BTP Maroc
-              </span>
-              <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">
-                TVA 20%
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Retenue de garantie légale fixée à <strong>10%</strong> sur toutes les situations d’avancement. Devis et décomptes conformes aux exigences de l'ICE, IF, RC et CNSS.
-            </p>
-          </div>
-
         </div>
 
       </div>

@@ -1,8 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Devis, Decompte, Chantier, CompanySettings } from './types';
+import { Devis, Decompte, Chantier, CompanySettings, FactureVente, CommandeClient, BonLivraisonVente, EtatSituationData } from './types';
 import { formatMAD, formatDateFR } from './store';
 
+// ==========================================
+// EXPORT PDF : DEVIS / DQE
+// ==========================================
 export function genererPDFDevis(devis: Devis, company: CompanySettings) {
   const doc = new jsPDF();
 
@@ -147,10 +150,231 @@ export function genererPDFDevis(devis: Devis, company: CompanySettings) {
   doc.text(legalLine, 105, pageHeight - 9, { align: 'center' });
   doc.text(bankLine, 105, pageHeight - 4, { align: 'center' });
 
-  // Save / Open
   doc.save(`Devis_${devis.reference}.pdf`);
 }
 
+// ==========================================
+// EXPORT PDF : FACTURE VENTE & DÉCOMPTE (SAGE 100 BTP)
+// ==========================================
+export function genererPDFFactureVente(facture: FactureVente, company: CompanySettings) {
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 36, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(company.raisonSociale, 14, 15);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${company.adresse} — ${company.ville}`, 14, 22);
+  doc.text(`ICE : ${company.ice}  |  Tél : ${company.telephone}`, 14, 28);
+
+  // Badge FACTURE
+  const isDecompte = facture.typeFacture === 'DECOMPTE_PROVISOIRE';
+  doc.setFillColor(isDecompte ? 16 : 249, isDecompte ? 185 : 115, isDecompte ? 129 : 22);
+  doc.roundedRect(138, 8, 60, 20, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(isDecompte ? 'DÉCOMPTE TRAVAUX' : 'FACTURE DE VENTE', 141, 16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`N° ${facture.numeroFacture}`, 141, 23);
+
+  // Bloc Client
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FACTURÉ À :', 14, 46);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Raison Sociale : ${facture.clientNom}`, 14, 52);
+  doc.text(`ICE Client : ${facture.clientIce || 'Non spécifié'}`, 14, 57);
+  doc.text(`Ville / Destination : ${facture.clientVille || '-'}`, 14, 62);
+  if (facture.chantierNom) {
+    doc.text(`Chantier rattaché : ${facture.chantierNom}`, 14, 67);
+  }
+
+  // Bloc Dates & Échéance
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(125, 42, 73, 26, 2, 2, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.roundedRect(125, 42, 73, 26, 2, 2, 'D');
+
+  doc.setFontSize(9);
+  doc.text(`Date Facture : ${formatDateFR(facture.dateFacture)}`, 129, 49);
+  doc.text(`Date Échéance : ${formatDateFR(facture.dateEcheance)}`, 129, 56);
+  doc.text(`Statut Règlement : ${facture.statut}`, 129, 63);
+
+  // Tableau des Prestations / Articles
+  const tableRows = facture.items.map((it, idx) => [
+    idx + 1,
+    it.designation,
+    it.unite || 'U',
+    it.quantite.toLocaleString('fr-FR'),
+    it.prixUnitaireHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
+    it.totalHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 })
+  ]);
+
+  autoTable(doc, {
+    startY: 76,
+    head: [['N°', 'Désignation des Travaux / Fournitures', 'Unité', 'Quantité', 'P.U. HT (MAD)', 'Total HT (MAD)']],
+    body: tableRows,
+    theme: 'striped',
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: 'bold'
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 3.5
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 95 },
+      2: { cellWidth: 15, halign: 'center' },
+      3: { cellWidth: 18, halign: 'right' },
+      4: { cellWidth: 24, halign: 'right' },
+      5: { cellWidth: 26, halign: 'right' }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 8;
+
+  // Récapitulatif Financier
+  const summaryX = 115;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Total Brut HT :', summaryX, finalY);
+  doc.text(formatMAD(facture.totalHT), 198, finalY, { align: 'right' });
+
+  let offset = 6;
+  if (facture.retenueGarantiePct && facture.retenueGarantiePct > 0) {
+    doc.text(`Retenue de garantie (${facture.retenueGarantiePct} %) :`, summaryX, finalY + offset);
+    doc.text(`- ${formatMAD(facture.montantRetenueMAD)}`, 198, finalY + offset, { align: 'right' });
+    offset += 6;
+  }
+
+  doc.text(`TVA (${facture.tauxTva || 20} %) :`, summaryX, finalY + offset);
+  doc.text(formatMAD(facture.montantTva), 198, finalY + offset, { align: 'right' });
+  offset += 7;
+
+  doc.setFillColor(30, 41, 59);
+  doc.rect(summaryX - 2, finalY + offset, 85, 9, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('TOTAL TTC (MAD) :', summaryX + 2, finalY + offset + 6);
+  doc.text(formatMAD(facture.totalTTC), 198, finalY + offset + 6, { align: 'right' });
+  offset += 14;
+
+  // Montant Réglé et Solde Dû
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Montant déjà réglé :', summaryX, finalY + offset);
+  doc.text(formatMAD(facture.montantRegle || 0), 198, finalY + offset, { align: 'right' });
+  offset += 6;
+
+  doc.setFillColor(241, 245, 249);
+  doc.rect(summaryX - 2, finalY + offset, 85, 9, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(facture.soldeDu > 0 ? 185 : 16, facture.soldeDu > 0 ? 28 : 185, facture.soldeDu > 0 ? 28 : 129);
+  doc.text('NET RESTE À PAYER :', summaryX + 2, finalY + offset + 6);
+  doc.text(formatMAD(facture.soldeDu || 0), 198, finalY + offset + 6, { align: 'right' });
+
+  // Coordonnées bancaires pour virement
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORMATIONS DE RÈGLEMENT :', 14, finalY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Banque : ${company.banque}`, 14, finalY + 5);
+  doc.text(`RIB : ${company.rib}`, 14, finalY + 10);
+  doc.text(`Règlement par virement bancaire ou chèque barré à l'ordre de :`, 14, finalY + 15);
+  doc.setFont('helvetica', 'bold');
+  doc.text(company.raisonSociale, 14, finalY + 20);
+
+  // Footer mentions légales marocaines
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.setFillColor(241, 245, 249);
+  doc.rect(0, pageHeight - 16, 210, 16, 'F');
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  const legalLine = `${company.raisonSociale} — ICE: ${company.ice} | IF: ${company.ifNum} | RC: ${company.rcNum} | CNSS: ${company.cnss} | Patente: ${company.patente}`;
+  const bankLine = `Banque: ${company.banque} | RIB: ${company.rib}`;
+  doc.text(legalLine, 105, pageHeight - 9, { align: 'center' });
+  doc.text(bankLine, 105, pageHeight - 4, { align: 'center' });
+
+  doc.save(`Facture_${facture.numeroFacture}.pdf`);
+}
+
+// ==========================================
+// EXPORT PDF : COMMANDE CLIENT
+// ==========================================
+export function genererPDFCommandeClient(commande: CommandeClient, company: CompanySettings) {
+  const doc = new jsPDF();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 36, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(company.raisonSociale, 14, 15);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${company.adresse} — ${company.ville}`, 14, 22);
+
+  doc.setFillColor(59, 130, 246); // Bleu
+  doc.roundedRect(138, 8, 60, 20, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('BON DE COMMANDE', 141, 16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Réf : ${commande.reference}`, 141, 23);
+
+  doc.save(`Commande_${commande.reference}.pdf`);
+}
+
+// ==========================================
+// EXPORT PDF : BON DE LIVRAISON CLIENT
+// ==========================================
+export function genererPDFBonLivraison(bl: BonLivraisonVente, company: CompanySettings) {
+  const doc = new jsPDF();
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 210, 36, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(company.raisonSociale, 14, 15);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${company.adresse} — ${company.ville}`, 14, 22);
+
+  doc.setFillColor(245, 158, 11); // Amber
+  doc.roundedRect(138, 8, 60, 20, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('BON DE LIVRAISON', 141, 16);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Réf : ${bl.reference}`, 141, 23);
+
+  doc.save(`BL_${bl.reference}.pdf`);
+}
+
+// ==========================================
+// EXPORT PDF : DÉCOMPTE BTP
+// ==========================================
 export function genererPDFDecompte(decompte: Decompte, chantier: Chantier, company: CompanySettings) {
   const doc = new jsPDF();
 

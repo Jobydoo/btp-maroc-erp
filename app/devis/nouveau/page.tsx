@@ -125,6 +125,7 @@ export default function NouveauDevisPage() {
       clientVille,
       objet,
       statut: 'EN_ATTENTE',
+      totalHT,
       items: formattedItems,
       tauxTva,
       conditionsPaiement,
