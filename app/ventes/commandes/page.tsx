@@ -41,6 +41,15 @@ export default function VentesCommandesPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const commandes = store.commandesClientActives.filter(c =>
     c.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||

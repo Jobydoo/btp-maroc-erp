@@ -45,6 +45,15 @@ export default function ArticlesPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const articles = store.articlesActifs.filter(a => {
     const matchSearch = a.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.code.toLowerCase().includes(searchTerm.toLowerCase());

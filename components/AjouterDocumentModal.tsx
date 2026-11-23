@@ -13,7 +13,11 @@ import {
   CreditCard,
   X,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  UserCheck,
+  Briefcase,
+  Boxes,
+  Building
 } from 'lucide-react';
 
 interface AjouterDocumentModalProps {
@@ -111,6 +115,40 @@ export default function AjouterDocumentModal({ isOpen, onClose, onOpenScanner }:
           icon: CreditCard,
           color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
           href: '/reglements?action=nouveau'
+        }
+      ]
+    },
+    {
+      titre: 'Tiers & Référentiel BTP (Créations Rapides)',
+      description: 'Enregistrer de nouveaux partenaires, chantiers ou matériaux dans l\'ERP',
+      items: [
+        {
+          nom: 'Nouveau Client (Maître d\'Ouvrage)',
+          desc: 'Créer une fiche client avec ICE, IF, RC, plafond et conditions',
+          icon: UserCheck,
+          color: 'text-blue-600 bg-blue-50 border-blue-200',
+          href: '/clients?action=nouveau'
+        },
+        {
+          nom: 'Nouveau Fournisseur de Matériaux',
+          desc: 'Ajouter un fournisseur ou sous-traitant avec RIB et ICE',
+          icon: Briefcase,
+          color: 'text-purple-600 bg-purple-50 border-purple-200',
+          href: '/fournisseurs?action=nouveau'
+        },
+        {
+          nom: 'Nouvel Article / Matériau',
+          desc: 'Ajouter un matériau au catalogue avec prix d\'achat et vente',
+          icon: Boxes,
+          color: 'text-amber-600 bg-amber-50 border-amber-200',
+          href: '/articles?action=nouveau'
+        },
+        {
+          nom: 'Nouveau Chantier BTP',
+          desc: 'Initialiser un nouveau projet de construction et ses lots DQE',
+          icon: Building,
+          color: 'text-orange-600 bg-orange-50 border-orange-200',
+          href: '/chantiers?action=nouveau'
         }
       ]
     }

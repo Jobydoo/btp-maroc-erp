@@ -52,6 +52,15 @@ export default function VentesDevisPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const devisList = store.devisActifs.filter(d => {
     const matchSearch = d.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -429,6 +438,62 @@ export default function VentesDevisPage() {
 
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
               
+              {/* Sélecteur Client Rapide */}
+              <div className="bg-orange-50/70 p-3 rounded-xl border border-orange-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building className="w-3.5 h-3.5 text-btp-orange" />
+                    Sélectionner un Client Existant ou Saisir Directement
+                  </label>
+                  <Link href="/clients?action=nouveau" target="_blank" className="text-[11px] font-bold text-btp-orange hover:underline flex items-center gap-1">
+                    <Plus className="w-3 h-3" /> Nouveau Client
+                  </Link>
+                </div>
+                <select
+                  onChange={(e) => {
+                    const c = store.clientsActifs.find(cl => cl.id === e.target.value);
+                    if (c) {
+                      setClientNom(c.nom);
+                      setClientIce(c.ice);
+                      setClientVille(c.ville);
+                      setClientTel(c.telephone);
+                      setClientAdresse(c.adresse);
+                    }
+                  }}
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-btp-orange focus:outline-none"
+                >
+                  <option value="">-- Choisir parmi les {store.clientsActifs.length} clients du répertoire (auto-remplissage) --</option>
+                  {store.clientsActifs.map(cl => (
+                    <option key={cl.id} value={cl.id}>
+                      {cl.nom} ({cl.ville}) — ICE: {cl.ice}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sélecteur Chantier (Optionnel) */}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap">
+                  Rattacher à un Chantier BTP :
+                </label>
+                <select
+                  onChange={(e) => {
+                    const ch = store.chantiersActifs.find(c => c.id === e.target.value);
+                    if (ch && !objet) {
+                      setObjet(`Travaux DQE pour ${ch.nom}`);
+                    }
+                  }}
+                  className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-btp-orange focus:outline-none"
+                >
+                  <option value="">-- Aucun chantier rattaché (Devis initial) --</option>
+                  {store.chantiersActifs.map(ch => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.nom} ({ch.code}) — {ch.ville}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Client / Maître d'Ouvrage *</label>
@@ -521,7 +586,25 @@ export default function VentesDevisPage() {
                           className="w-full p-1.5 bg-slate-50 border border-slate-300 rounded text-[11px]"
                         />
                       </div>
-                      <div className="col-span-4">
+                      <div className="col-span-4 space-y-1">
+                        <select
+                          onChange={(e) => {
+                            const art = store.articlesActifs.find(a => a.id === e.target.value);
+                            if (art) {
+                              handleItemChange(idx, 'designation', art.designation);
+                              handleItemChange(idx, 'unite', art.unite);
+                              handleItemChange(idx, 'prixUnitaireHT', art.prixVenteHT || (art as any).prixVente || art.prixUnitaireMoyenMAD);
+                            }
+                          }}
+                          className="w-full p-1 bg-slate-100 border border-slate-200 rounded text-[10px] text-slate-700"
+                        >
+                          <option value="">-- Article catalogue --</option>
+                          {store.articlesActifs.map(art => (
+                            <option key={art.id} value={art.id}>
+                              {art.designation} ({art.prixVenteHT || (art as any).prixVente || art.prixUnitaireMoyenMAD} MAD/{art.unite})
+                            </option>
+                          ))}
+                        </select>
                         <input
                           type="text"
                           value={it.designation}

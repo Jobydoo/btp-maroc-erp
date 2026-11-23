@@ -40,6 +40,15 @@ export default function VentesLivraisonsPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const livraisons = store.livraisonsVenteActives.filter(l =>
     l.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||

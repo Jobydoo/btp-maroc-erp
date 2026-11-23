@@ -61,8 +61,8 @@ export default function DevisPage() {
     setTimeout(() => setAlertMessage(null), 3500);
   };
 
-  const devisList = store.devis;
-  const decomptesList = store.decomptes;
+  const devisList = store.devisActifs;
+  const decomptesList = store.decomptesActifs;
   const company = store.company;
 
   const handleConvertir = (devisId: string) => {

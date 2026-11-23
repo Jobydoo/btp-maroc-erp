@@ -43,6 +43,15 @@ export default function FournisseursPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const fournisseurs = store.fournisseursActifs.filter(f =>
     f.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
     f.ice.includes(searchTerm) ||

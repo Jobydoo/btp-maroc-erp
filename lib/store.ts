@@ -412,6 +412,11 @@ export class DataStore {
     return this.getActiveDevis();
   }
 
+  get decomptesActifs(): Decompte[] {
+    const chIds = new Set(this.chantiersActifs.map(c => c.id));
+    return this.decomptes.filter(d => chIds.has(d.chantierId));
+  }
+
   get commandesClientActives(): CommandeClient[] {
     return this.getActiveCommandesClient();
   }

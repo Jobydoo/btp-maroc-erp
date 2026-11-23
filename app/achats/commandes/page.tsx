@@ -38,6 +38,15 @@ export default function AchatsCommandesPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const commandes = store.commandesFournisseurActives.filter(c =>
     c.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.fournisseurNom.toLowerCase().includes(searchTerm.toLowerCase())

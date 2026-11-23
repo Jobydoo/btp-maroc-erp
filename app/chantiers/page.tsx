@@ -61,7 +61,7 @@ function ChantiersContent() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get('nouveau') === 'true') {
+    if (searchParams.get('nouveau') === 'true' || searchParams.get('action') === 'nouveau') {
       openCreateModal();
     }
   }, [searchParams]);

@@ -41,6 +41,15 @@ export default function AchatsFacturesPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const factures = store.facturesAchatActives.filter(f =>
     f.numeroFacture.toLowerCase().includes(searchTerm.toLowerCase()) ||
     f.fournisseurNom.toLowerCase().includes(searchTerm.toLowerCase()) ||

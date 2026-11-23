@@ -62,6 +62,15 @@ export default function VentesFacturesPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const factures = store.facturesVenteActives.filter(f => {
     const matchSearch = f.numeroFacture.toLowerCase().includes(searchTerm.toLowerCase()) ||
       f.clientNom.toLowerCase().includes(searchTerm.toLowerCase()) ||

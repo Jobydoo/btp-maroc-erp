@@ -43,6 +43,15 @@ export default function ReglementsPage() {
     return store.subscribe(() => setTick(t => t + 1));
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'nouveau') {
+        handleOpenAdd();
+      }
+    }
+  }, []);
+
   const reglements = store.reglementsActifs.filter(r => {
     const matchSearch = r.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.tierNom.toLowerCase().includes(searchTerm.toLowerCase()) ||
